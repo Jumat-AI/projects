@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  app:
+    container_name: jumat-ai-gemini-prompt-crafter
+    build:
+      context: .
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - traefik-net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=jumat-ai-web"
+      - "traefik.http.routers.gemini-prompt-crafter.rule=Host(`project.jumat.ai.id`) && PathPrefix(`/gemini-prompt-crafter`)"
+      - "traefik.http.routers.gemini-prompt-crafter.entrypoints=websecure"
+      - "traefik.http.routers.gemini-prompt-crafter.tls=true"
+      - "traefik.http.middlewares.gemini-prompt-crafter-strip.stripprefix.prefixes=/gemini-prompt-crafter"
+      - "traefik.http.routers.gemini-prompt-crafter.middlewares=gemini-prompt-crafter-strip"
+      - "traefik.http.services.gemini-prompt-crafter.loadbalancer.server.port=80"
+
+networks:
+  traefik-net:
+    name: jumat-ai-web
+    external: true

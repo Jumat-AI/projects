@@ -3,6 +3,9 @@
     "slug": "gemini-prompt-crafter",
     "title": "Gemini Prompt Crafter",
     "description": "Generator prompt AI interaktif berbasis kerangka RTF (Role-Task-Format) untuk mengoptimalkan hasil generasi AI Anda.",
+    "repo_url": "https://github.com/jumat-ai/gemini-prompt-crafter",
+    "branch": "main",
+    "internal_port": 80,
     "author": {
       "name": "Tim Komunitas Jumat.AI",
       "github": "jumat-ai",
@@ -15,6 +18,10 @@
       "productivity"
     ],
     "ai_type": "byok",
+    "resources": {
+      "cpu": "0.5",
+      "memory": "512M"
+    },
     "version": "1.0.0",
     "created_at": "2026-11-20",
     "has_preview": false

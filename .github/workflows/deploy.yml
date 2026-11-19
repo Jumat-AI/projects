@@ -1,8 +1,11 @@
-name: Deploy ke Server Pribadi
+name: Deploy Otomatis per Proyek ke Server
 
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'projects/**'
+      - 'hub/**'
 
 jobs:
   deploy:
@@ -10,23 +13,81 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # Untuk mendeteksi perubahan commit terakhir
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Kompilasi Katalog Terbaru
-        run: node scripts/build-catalog.js
+      - name: Install Dependencies & Kompilasi Katalog
+        run: |
+          npm install
+          node scripts/build-catalog.js
 
-      - name: Deploy ke Server Pribadi via SSH Rsync
+      - name: Deteksi Perubahan Folder
+        id: changed-dirs
+        run: |
+          # Cari folder di bawah projects/ yang mengalami perubahan (selain _template)
+          CHANGED_PROJECTS=$(git diff --name-only HEAD~1 HEAD | grep '^projects/' | cut -d'/' -f2 | sort -u | grep -v '^_template' || true)
+          echo "Proyek yang terdeteksi berubah:"
+          echo "$CHANGED_PROJECTS"
+          echo "projects=$CHANGED_PROJECTS" >> $GITHUB_OUTPUT
+
+          # Cek apakah folder hub/ juga berubah
+          HUB_CHANGED=$(git diff --name-only HEAD~1 HEAD | grep '^hub/' || true)
+          if [ -n "$HUB_CHANGED" ]; then
+            echo "hub_changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "hub_changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Sinkronisasi File Hub & Proyek ke Server
         uses: easingthemes/ssh-deploy@v5.0.3
         with:
           SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
-          ARGS: "-rlgoDzc --delete"
+          ARGS: "-rlgoDzc"
           SOURCE: "hub/ projects/"
           REMOTE_HOST: ${{ secrets.SERVER_HOST }}
           REMOTE_USER: ${{ secrets.SERVER_USER }}
           REMOTE_PORT: ${{ secrets.SERVER_PORT || '22' }}
           TARGET: "/var/www/project.jumat.ai.id/"
           EXCLUDE: "/.git/, /node_modules/, /.github/"
+
+      - name: Build & Restart Container Proyek yang Berubah
+        uses: appleboy/ssh-action@v1.0.3
+        if: steps.changed-dirs.outputs.projects != '' || steps.changed-dirs.outputs.hub_changed == 'true'
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script: |
+            echo "=== MEMPROSES DEPLOY CONTAINER ==="
+            # Pastikan network isolasi jumat-ai-web ada
+            docker network inspect jumat-ai-web >/dev/null 2>&1 || docker network create jumat-ai-web
+
+            # 1. Deploy proyek-proyek yang berubah
+            for project in ${{ steps.changed-dirs.outputs.projects }}; do
+              PROJECT_DIR="/var/www/project.jumat.ai.id/projects/$project"
+              if [ -f "$PROJECT_DIR/docker-compose.yml" ]; then
+                echo "=== Memulai Build & Deploy: $project ==="
+                cd "$PROJECT_DIR"
+                docker compose up -d --build --remove-orphans
+                echo "✔ Selesai deploy $project!"
+              else
+                echo "Lewati $project: docker-compose.yml tidak ditemukan."
+              fi
+            done
+
+            # 2. Deploy / Refresh Katalog Hub jika ada perubahan
+            if [ "${{ steps.changed-dirs.outputs.hub_changed }}" = "true" ] || [ -n "${{ steps.changed-dirs.outputs.projects }}" ]; then
+              HUB_DIR="/var/www/project.jumat.ai.id/hub"
+              if [ -f "$HUB_DIR/docker-compose.yml" ]; then
+                echo "=== Refresh Container Katalog Hub ==="
+                cd "$HUB_DIR"
+                docker compose up -d --build --remove-orphans
+                echo "✔ Katalog Hub terbarui!"
+              fi
+            fi

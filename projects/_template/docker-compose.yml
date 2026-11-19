@@ -1,0 +1,54 @@
+version: '3.8'
+
+# ==============================================================================
+# DOCKER-COMPOSE TEMPLATE PROYEK KOMUNITAS JUMAT.AI
+# Aturan Keamanan Wajib:
+# 1. DILARANG menggunakan 'ports:' (port mapping ke host dilarang demi keamanan)
+# 2. WAJIB menggunakan batasan resource CPU (maks 0.5) dan Memory (maks 512M)
+# 3. WAJIB terhubung ke network terisolasi 'jumat-ai-web'
+# ==============================================================================
+
+services:
+  app:
+    container_name: jumat-ai-nama-project-anda
+    build:
+      context: .
+      args:
+        REPO_URL: "https://github.com/username_anda/repo-proyek-anda.git"
+        BRANCH: "main"
+    restart: unless-stopped
+
+    # Expose port internal container ke network Traefik (bukan port mapping ke host)
+    expose:
+      - "3000"
+
+    # Terhubung hanya ke network terisolasi Traefik untuk Jumat.AI
+    networks:
+      - traefik-net
+
+    # Batasan Resource untuk menjaga stabilitas server bersama
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'        # Maksimal 0.5 vCPU
+          memory: 512M       # Maksimal 512 Megabytes RAM
+
+    # Konfigurasi Routing Traefik
+    labels:
+      - "traefik.enable=true"
+      # Beritahu Traefik network yang digunakan
+      - "traefik.docker.network=jumat-ai-web"
+      # Routing path: project.jumat.ai.id/nama-project-anda
+      - "traefik.http.routers.nama-project-anda.rule=Host(`project.jumat.ai.id`) && PathPrefix(`/nama-project-anda`)"
+      - "traefik.http.routers.nama-project-anda.entrypoints=websecure"
+      - "traefik.http.routers.nama-project-anda.tls=true"
+      # Middleware strip prefix agar aplikasi menerima request dari '/'
+      - "traefik.http.middlewares.nama-project-anda-strip.stripprefix.prefixes=/nama-project-anda"
+      - "traefik.http.routers.nama-project-anda.middlewares=nama-project-anda-strip"
+      # Port internal tempat aplikasi mendengarkan request
+      - "traefik.http.services.nama-project-anda.loadbalancer.server.port=3000"
+
+networks:
+  traefik-net:
+    name: jumat-ai-web
+    external: true

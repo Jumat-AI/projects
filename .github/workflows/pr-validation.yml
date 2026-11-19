@@ -1,4 +1,4 @@
-name: Validasi PR Proyek Komunitas
+name: Validasi PR & Code Sniffer Proyek
 
 on:
   pull_request:
@@ -7,7 +7,7 @@ on:
       - 'projects/**'
 
 jobs:
-  validate:
+  validate-and-sniff:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -20,13 +20,16 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Validasi Struktur & Keamanan Proyek
-        run: node scripts/validate-pr.js
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Validasi Arsitektur Docker, Traefik & Batasan Resource
+        run: node scripts/validate-pr.js --sniff
 
       - name: Cek Kompilasi Katalog
         run: node scripts/build-catalog.js
 
-      - name: Post Comment Feedback di PR
+      - name: Post Comment Feedback Berhasil di PR
         if: success()
         uses: actions/github-script@v7
         with:
@@ -35,5 +38,17 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '🎉 **Validasi Otomatis Berhasil!**\n\nProyek Anda telah lolos pemeriksaan struktur file, batasan ukuran, dan standar keamanan. Tim pengelola Jumat.AI akan segera meninjau PR ini sebelum di-merge.'
+              body: '🎉 **Verifikasi Otomatis Berhasil!**\n\n- ✔ Dockerfile & docker-compose.yml memenuhi standar Traefik\n- ✔ Zero Host Port Exposure (tidak ada port berbahaya diekspos)\n- ✔ Batasan resource CPU (<= 0.5) & RAM (<= 512MB) valid\n- ✔ Terhubung ke network terisolasi `jumat-ai-web`\n- ✔ Code Sniffer bersih (bebas malware, crypto miner, dan secret bocor)\n\nPengelola Jumat.AI akan segera meninjau PR ini untuk di-merge.'
+            })
+
+      - name: Post Comment Feedback Gagal di PR
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '❌ **Verifikasi Otomatis Gagal!**\n\nAda aturan konfigurasi atau keamanan yang belum terpenuhi. Silakan periksa tab **Actions** / log pemeriksaan untuk detail kesalahan dan perbaiki pada commit berikutnya.'
             })

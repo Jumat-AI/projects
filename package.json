@@ -15,5 +15,8 @@
     "ai-showcase"
   ],
   "author": "Komunitas Jumat.AI",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "js-yaml": "^5.5.0"
+  }
 }
