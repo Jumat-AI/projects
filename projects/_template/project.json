@@ -1,0 +1,14 @@
+{
+  "slug": "nama-project-anda",
+  "title": "Nama Project Anda",
+  "description": "Jelaskan secara singkat kegunaan project AI ini dalam 1-2 kalimat yang menarik.",
+  "author": {
+    "name": "Nama Lengkap Anda",
+    "github": "username_github_anda",
+    "avatar": "https://github.com/username_github_anda.png"
+  },
+  "tags": ["ai", "gemini", "byok"],
+  "ai_type": "byok",
+  "version": "1.0.0",
+  "created_at": "2026-11-20"
+}

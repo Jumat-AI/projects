@@ -1,0 +1,39 @@
+name: Validasi PR Proyek Komunitas
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'projects/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validasi Struktur & Keamanan Proyek
+        run: node scripts/validate-pr.js
+
+      - name: Cek Kompilasi Katalog
+        run: node scripts/build-catalog.js
+
+      - name: Post Comment Feedback di PR
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🎉 **Validasi Otomatis Berhasil!**\n\nProyek Anda telah lolos pemeriksaan struktur file, batasan ukuran, dan standar keamanan. Tim pengelola Jumat.AI akan segera meninjau PR ini sebelum di-merge.'
+            })

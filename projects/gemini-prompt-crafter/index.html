@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gemini Prompt Crafter — Jumat.AI Showcase</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-container">
+      <a href="/" class="back-link">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Kembali ke Galeri Showcase
+      </a>
+      <div class="badge-brand">✨ Jumat.AI Community</div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <div class="hero">
+      <span class="category-chip">Prompt Engineering &bull; BYOK</span>
+      <h1>Gemini Prompt Crafter</h1>
+      <p class="subtitle">Ubah ide mentah Anda menjadi prompt AI terstruktur dengan formula <strong>Role &bull; Task &bull; Format &bull; Constraint</strong>.</p>
+    </div>
+
+    <!-- BYOK Key Card -->
+    <div class="glass-card byok-section">
+      <div class="byok-header">
+        <div class="key-icon">🔑</div>
+        <div>
+          <h3>Gemini API Key (BYOK)</h3>
+          <p class="text-sm">Kunci disimpan aman hanya di <code>sessionStorage</code> peramban Anda. Kosongkan untuk mode simulasi instan.</p>
+        </div>
+      </div>
+      <div class="input-row">
+        <input type="password" id="apiKeyInput" placeholder="Masukkan Gemini API Key (AIzaSy...)" autocomplete="off">
+        <button id="saveKeyBtn" class="btn btn-secondary">Simpan</button>
+        <button id="clearKeyBtn" class="btn btn-danger" style="display:none;">Hapus</button>
+      </div>
+      <div id="keyFeedback" class="feedback-msg"></div>
+    </div>
+
+    <!-- Crafter Form -->
+    <div class="glass-card main-card">
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="domainSelect">Target Domain / Peran AI:</label>
+          <select id="domainSelect">
+            <option value="Senior Software Engineer & Architect">Senior Software Engineer & Architect</option>
+            <option value="Product Manager & UX Strategist">Product Manager & UX Strategist</option>
+            <option value="AI / ML Research Specialist">AI / ML Research Specialist</option>
+            <option value="Expert Technical Content Writer">Expert Technical Content Writer</option>
+            <option value="Data Scientist & Business Analyst">Data Scientist & Business Analyst</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="formatSelect">Format Output yang Diinginkan:</label>
+          <select id="formatSelect">
+            <option value="Step-by-step Implementation Guide + Code">Step-by-step Guide + Code</option>
+            <option value="Executive Summary + Structured Markdown Table">Executive Summary + Table</option>
+            <option value="Bullet Points + Pro / Con Analysis">Bullet Points + Pro/Con Analysis</option>
+            <option value="Production-Ready JSON Schema">Production-Ready JSON Schema</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="rawPrompt">Ide Mentah / Kebutuhan Anda:</label>
+        <textarea id="rawPrompt" rows="3" placeholder="Contoh: Saya mau bikin sistem autentikasi JWT di FastAPI yang aman dari brute-force dan punya refresh token..."></textarea>
+      </div>
+
+      <button id="craftBtn" class="btn btn-primary">
+        <span>🪄 Sulap Menjadi Prompt Profesional</span>
+      </button>
+    </div>
+
+    <!-- Output Section -->
+    <div id="outputContainer" class="glass-card output-card" style="display:none;">
+      <div class="output-header">
+        <h3>Prompt Siap Pakai:</h3>
+        <button id="copyBtn" class="btn btn-outline-sm">Salin Prompt</button>
+      </div>
+      <pre id="craftedPromptText"></pre>
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    <p>Project Komunitas Jumat.AI &bull; Dihost di server pribadi tanpa server-side script &bull; <a href="https://jumat.ai.id" target="_blank">jumat.ai.id</a></p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

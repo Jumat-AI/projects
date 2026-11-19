@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nama Project Anda — Jumat.AI Showcase</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Header / Navigasi Standar Komunitas Jumat.AI -->
+  <header class="app-header">
+    <div class="header-container">
+      <a href="/" class="back-link">← Kembali ke Katalog Showcase</a>
+      <div class="badge">Jumat.AI Community Project</div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <section class="hero-section">
+      <h1>Nama Project AI Anda</h1>
+      <p class="subtitle">Aplikasi web statis cerdas yang berjalan sepenuhnya di browser Anda.</p>
+    </section>
+
+    <!-- BYOK (Bring Your Own Key) Banner -->
+    <section class="byok-card">
+      <div class="byok-header">
+        <span class="icon">🔑</span>
+        <h3>Kunci API Anda (BYOK)</h3>
+      </div>
+      <p class="byok-desc">
+        Kunci disimpan aman hanya di <code>sessionStorage</code> peramban Anda dan tidak pernah dikirim ke server Jumat.AI.
+      </p>
+      <div class="byok-input-group">
+        <input type="password" id="apiKeyInput" placeholder="Masukkan Gemini API Key (AIzaSy...)" autocomplete="off">
+        <button id="saveKeyBtn" class="btn btn-secondary">Simpan</button>
+        <button id="clearKeyBtn" class="btn btn-outline" style="display:none;">Hapus</button>
+      </div>
+      <p id="keyStatus" class="key-status"></p>
+    </section>
+
+    <!-- Konten Interaktif Project Anda -->
+    <section class="demo-card">
+      <h2>Mulai Berinteraksi</h2>
+      <div class="form-group">
+        <label for="promptInput">Masukkan teks / prompt Anda:</label>
+        <textarea id="promptInput" rows="4" placeholder="Ketik sesuatu di sini..."></textarea>
+      </div>
+
+      <button id="submitBtn" class="btn btn-primary">Proses dengan AI</button>
+
+      <!-- Hasil -->
+      <div class="result-box">
+        <h3>Hasil:</h3>
+        <pre id="outputResult">Hasil pemrosesan akan muncul di sini...</pre>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <p>Dibuat dengan ❤️ oleh <strong id="authorName">Kontributor Jumat.AI</strong> &bull; Bagian dari <a href="https://jumat.ai.id" target="_blank">jumat.ai.id</a></p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

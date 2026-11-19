@@ -1,0 +1,19 @@
+{
+  "name": "project-jumat-ai",
+  "version": "1.0.0",
+  "description": "Showcase platform & monorepo project komunitas Jumat.AI (project.jumat.ai.id)",
+  "main": "scripts/serve.js",
+  "scripts": {
+    "validate": "node scripts/validate-pr.js",
+    "build": "node scripts/build-catalog.js",
+    "dev": "node scripts/serve.js",
+    "start": "node scripts/serve.js"
+  },
+  "keywords": [
+    "jumat-ai",
+    "community-projects",
+    "ai-showcase"
+  ],
+  "author": "Komunitas Jumat.AI",
+  "license": "MIT"
+}

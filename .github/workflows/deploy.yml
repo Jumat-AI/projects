@@ -1,0 +1,32 @@
+name: Deploy ke Server Pribadi
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Kompilasi Katalog Terbaru
+        run: node scripts/build-catalog.js
+
+      - name: Deploy ke Server Pribadi via SSH Rsync
+        uses: easingthemes/ssh-deploy@v5.0.3
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          ARGS: "-rlgoDzc --delete"
+          SOURCE: "hub/ projects/"
+          REMOTE_HOST: ${{ secrets.SERVER_HOST }}
+          REMOTE_USER: ${{ secrets.SERVER_USER }}
+          REMOTE_PORT: ${{ secrets.SERVER_PORT || '22' }}
+          TARGET: "/var/www/project.jumat.ai.id/"
+          EXCLUDE: "/.git/, /node_modules/, /.github/"
