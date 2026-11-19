@@ -128,3 +128,11 @@ labels:
 Dengan konfigurasi ini:
 * Pengguna mengakses: `https://project.jumat.ai.id/voice-ai/api/generate`
 * Aplikasi di container menerima request bersih: `/api/generate`
+
+---
+
+## 6. 📋 Technical Debt & Pengembangan Mendatang
+
+Daftar pertimbangan arsitektur dan fitur yang ditangguhkan ke iterasi berikutnya (termasuk manajemen file kredensial mandiri kontributor ala *GitLab Secure Files*) dapat dilihat pada dokumen:
+👉 **[docs/TECHNICAL_DEBT.md](file:///D:/AI/project-jumat-ai/docs/TECHNICAL_DEBT.md)**
+

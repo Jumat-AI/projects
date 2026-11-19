@@ -22,7 +22,8 @@ project-jumat-ai/
 │       └── deploy.yml           # CD: Build & deploy otomatis HANYA untuk proyek yang berubah
 │
 ├── docs/
-│   └── ARCHITECTURE.md          # Dokumentasi teknis isolasi jaringan, Traefik, & keamanan
+│   ├── ARCHITECTURE.md          # Dokumentasi teknis isolasi jaringan, Traefik, & keamanan
+│   └── TECHNICAL_DEBT.md        # Catatan technical debt, backlog & manajemen kredensial
 │
 ├── hub/                         # Halaman katalog utama (project.jumat.ai.id/)
 │   ├── index.html               # UI katalog (pencarian, filter kategori, responsive dark mode)
