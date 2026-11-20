@@ -89,4 +89,12 @@ npm run build
 npm run dev
 ```
 
-Untuk panduan lengkap bagi kontributor yang ingin menambahkan proyek baru menggunakan template, silakan baca **[CONTRIBUTING.md](file:///D:/AI/project-jumat-ai/CONTRIBUTING.md)**.
+### 🗺️ Alur Kontribusi Singkat
+1. **Fork & clone** repositori ini.
+2. **Salin template:** `cp -r projects/_template projects/slug-proyek-anda`.
+3. **Sesuaikan:** `project.json`, `Dockerfile`, dan `docker-compose.yml`.
+4. **Validasi mandiri:** jalankan `npm run validate`.
+5. **Kirim PR:** Buka Pull Request ke branch `main`. Sistem otomatis (CI) akan memvalidasi struktur dan menjalankan Code Sniffer.
+
+Untuk panduan visual dan teknis lengkap langkah demi langkah bagi kontributor, silakan baca **[CONTRIBUTING.md](file:///D:/AI/project-jumat-ai/CONTRIBUTING.md)**.
+

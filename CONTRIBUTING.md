@@ -4,6 +4,40 @@ Terima kasih atas ketertarikan Anda untuk membagikan karya Anda di **[project.ju
 
 ---
 
+## 🗺️ Alur Kontribusi (Overview)
+
+```mermaid
+flowchart TD
+    subgraph Kontributor["1. Di Komputer Kontributor"]
+        A["Fork & Clone repo project-jumat-ai"] --> B["Salin folder projects/_template/\nmenjadi projects/nama-project/"]
+        B --> C["Sesuaikan project.json, Dockerfile,\n& docker-compose.yml"]
+        C --> D["Uji mandiri: npm run validate"]
+        D --> E["Commit & Kirim Pull Request (PR) ke branch main"]
+    end
+
+    subgraph GitHubCI["2. Di Cloud GitHub (CI & Sniffer)"]
+        E --> F["GitHub Actions: pr-validation.yml"]
+        F --> G{"Linter Orkestrasi:\n- Zero host ports?\n- CPU <= 0.5 & RAM <= 512M?\n- Network jumat-ai-web?"}
+        G -- Tidak --> H["PR Gagal (Beri feedback di PR)"]
+        G -- Ya --> I["Clone sementara repo kontributor\n& Jalankan Code Sniffer (Malware/Miner/Secret)"]
+        I -- Bersih --> J["Bot Beri Centang Hijau: Lolos Validasi!"]
+    end
+
+    subgraph AdminAction["3. Di Sisi Pengelola"]
+        J --> K["Pengelola Review & Klik 'Merge'"]
+    end
+
+    subgraph ServerDeploy["4. Di Server VPS (CD)"]
+        K --> L["GitHub Actions: deploy.yml via SSH"]
+        L --> M["Deteksi folder yang berubah via git diff"]
+        M --> N["Build & up HANYA proyek tersebut:\ndocker compose up -d --build"]
+        N --> O["Traefik deteksi rute baru via docker socket"]
+        O --> P["🚀 Live di project.jumat.ai.id/nama-project/\n& Otomatis Muncul di Katalog Depan!"]
+    end
+```
+
+---
+
 ## 📋 Syarat & Ketentuan Proyek
 
 Untuk menjaga **keamanan**, **stabilitas server bersama**, dan **keadilan resource**, setiap proyek yang diunggah wajib mematuhi aturan berikut:

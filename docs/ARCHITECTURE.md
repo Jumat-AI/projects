@@ -75,7 +75,43 @@ COPY --from=cloner /source /app
 
 ---
 
-## 3. ⚡ Eksekusi Build Independen Per Proyek
+## 3. 🔄 Alur Lengkap GitOps (Dari PR Hingga Deploy)
+
+Mekanisme penambahan dan pembaruan proyek diatur secara otomatis melalui siklus GitOps:
+
+```mermaid
+flowchart TD
+    subgraph TahapKontributor["1. Kontributor"]
+        A["Fork & Clone project-jumat-ai"] --> B["Duplikasi projects/_template/"]
+        B --> C["Sesuaikan project.json, Dockerfile, & docker-compose.yml"]
+        C --> D["Uji Mandiri: npm run validate"]
+        D --> E["Buka Pull Request (PR) ke branch main"]
+    end
+
+    subgraph TahapCI["2. GitHub Actions CI (Cloud Runner)"]
+        E --> F["Trigger pr-validation.yml"]
+        F --> G{"Linter Orkestrasi:\n- Zero host ports?\n- Limit CPU & RAM?\n- Network jumat-ai-web?"}
+        G -- Gagal --> H["Tolak PR & Beri Feedback Bot"]
+        G -- Lolos --> I["Clone Sandbox Sementara\n& Jalankan Code Sniffer"]
+        I -- Lolos --> J["Centang Hijau di PR"]
+    end
+
+    subgraph TahapAdmin["3. Pengelola Jumat.AI"]
+        J --> K["Review & Merge PR"]
+    end
+
+    subgraph TahapCD["4. Server VPS (SSH Runner)"]
+        K --> L["Trigger deploy.yml"]
+        L --> M["Deteksi folder proyek yang berubah via git diff"]
+        M --> N["Eksekusi: docker compose up -d --build\nHANYA di folder proyek tersebut"]
+        N --> O["Traefik deteksi rute baru via Docker socket"]
+        O --> P["Live di https://project.jumat.ai.id/slug/"]
+    end
+```
+
+---
+
+## 4. ⚡ Eksekusi Build Independen Per Proyek
 
 Salah satu keunggulan utama arsitektur ini adalah **efisiensi deploy**:
 * GitHub Action mendeteksi folder proyek mana yang mengalami perubahan:
@@ -91,7 +127,7 @@ Salah satu keunggulan utama arsitektur ini adalah **efisiensi deploy**:
 
 ---
 
-## 4. 🛡️ Penegakan Keamanan & Code Sniffer
+## 5. 🛡️ Penegakan Keamanan & Code Sniffer
 
 Setiap Pull Request (PR) yang masuk melewati 2 lapis pengujian otomatis di GitHub Actions sebelum diizinkan untuk di-merge:
 
@@ -111,7 +147,7 @@ Sebelum kode menyentuh server Anda, GitHub Actions meng-clone repositori kontrib
 
 ---
 
-## 5. 🏷️ Traefik Routing & Middleware StripPrefix
+## 6. 🏷️ Traefik Routing & Middleware StripPrefix
 
 Setiap proyek disajikan pada sub-path: `project.jumat.ai.id/<slug>`.
 
@@ -131,7 +167,7 @@ Dengan konfigurasi ini:
 
 ---
 
-## 6. 📋 Technical Debt & Pengembangan Mendatang
+## 7. 📋 Technical Debt & Pengembangan Mendatang
 
 Daftar pertimbangan arsitektur dan fitur yang ditangguhkan ke iterasi berikutnya (termasuk manajemen file kredensial mandiri kontributor ala *GitLab Secure Files*) dapat dilihat pada dokumen:
 👉 **[docs/TECHNICAL_DEBT.md](file:///D:/AI/project-jumat-ai/docs/TECHNICAL_DEBT.md)**
