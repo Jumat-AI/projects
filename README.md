@@ -1,100 +1,72 @@
 # Showcase Proyek Komunitas — Jumat.AI
 
-Repositori resmi platform showcase kreasi komunitas **[project.jumat.ai.id](https://project.jumat.ai.id)**, bagian dari inisiatif belajar bersama **[jumat.ai.id](https://jumat.ai.id)**.
+Selamat datang di repositori showcase kreasi komunitas **[project.jumat.ai.id](https://project.jumat.ai.id)**, bagian dari inisiatif belajar bersama **[jumat.ai.id](https://jumat.ai.id)**.
 
-Platform ini mengadopsi arsitektur **Containerized Multi-Tenant (Docker + Traefik)** dengan tata kelola berbasis **GitOps**:
-- 🛡️ **Network Isolation:** Proyek komunitas berjalan di network Docker terisolasi (`jumat-ai-web`), terpisah total dari network proyek pribadi Anda di server.
-- ⚡ **Build & Deploy Independen:** Multi-stage build di-clone langsung dari repo GitHub kontributor. Server hanya mem-build dan me-restart container proyek yang mengalami perubahan.
-- 🚫 **Zero Port Exposure:** Tidak ada port yang diekspos langsung ke publik (`ports:` dilarang). Seluruh akses melewati Traefik melalui path `project.jumat.ai.id/<nama_project>`.
-- ⚖️ **Resource Enforcement:** Setiap container dibatasi secara ketat (CPU <= 0.5 vCPU, RAM <= 512MB).
-- 🔍 **Security Code Sniffer:** GitHub Actions otomatis memindai potensi malware, crypto-miner, dan kredensial bocor pada repo kontributor sebelum Pull Request di-merge.
+Repositori ini adalah tempat bagi anggota komunitas untuk mempublikasikan aplikasi dan eksperimen AI berbasis Docker agar dapat diakses oleh publik di `https://project.jumat.ai.id/<nama-project>`.
 
 ---
 
-## 📁 Struktur Direktori
+## 🚀 Cara Menambahkan Proyek Anda
 
-```text
-project-jumat-ai/
-│
-├── .github/
-│   └── workflows/
-│       ├── pr-validation.yml    # CI: Linter Docker/Compose & Code Sniffer repo kontributor
-│       └── deploy.yml           # CD: Build & deploy otomatis HANYA untuk proyek yang berubah
-│
-├── docs/
-│   ├── ARCHITECTURE.md          # Dokumentasi teknis isolasi jaringan, Traefik, & keamanan
-│   └── TECHNICAL_DEBT.md        # Catatan technical debt, backlog & manajemen kredensial
-│
-├── hub/                         # Halaman katalog utama (project.jumat.ai.id/)
-│   ├── index.html               # UI katalog (pencarian, filter kategori, responsive dark mode)
-│   ├── styles.css               # Desain UI modern
-│   ├── app.js                   # Logika render kartu proyek
-│   └── projects.json            # Index seluruh proyek terdaftar (auto-generated)
-│
-├── projects/                    # Direktori seluruh proyek komunitas
-│   ├── _template/               # Starter template Dockerfile + docker-compose untuk kontributor
-│   └── gemini-prompt-crafter/   # Contoh proyek bawaan berbasis container
-│
-├── scripts/
-│   ├── build-catalog.js         # Mengompilasi metadata seluruh proyek menjadi hub/projects.json
-│   ├── validate-pr.js           # Validator keamanan Docker, compose rules, & Code Sniffer
-│   └── serve.js                 # Dev server lokal bawaan Node.js
-│
-├── CONTRIBUTING.md              # Panduan lengkap kontribusi bagi komunitas
-├── package.json
-└── README.md
+Untuk mempublikasikan proyek AI Anda, ikuti 5 langkah mudah berikut:
+
+### 1. Fork & Clone Repositori
+1. Klik tombol **Fork** di pojok kanan atas repositori ini.
+2. Clone ke komputer Anda:
+   ```bash
+   git clone https://github.com/<username-anda>/project-jumat-ai.git
+   cd project-jumat-ai
+   npm install
+   ```
+
+### 2. Duplikasi Folder Template
+Salin folder `projects/_template` menjadi nama proyek Anda (gunakan huruf kecil dan tanda strip):
+```bash
+# Contoh nama slug: audio-summarizer
+cp -r projects/_template projects/audio-summarizer
 ```
 
----
+### 3. Sesuaikan File Konfigurasi
+Buka folder `projects/<nama-project>/` dan sesuaikan 3 file berikut:
 
-## 🚀 Setup 1-Kali di Server (Production Server)
+1. **`project.json`:**
+   Isi informasi slug, judul, deskripsi, link repositori aplikasi asli Anda di GitHub (`repo_url`), port internal aplikasi (`internal_port`), dan profil pembuat.
+2. **`Dockerfile`:**
+   Pastikan `REPO_URL` mengarah ke repositori Anda, sesuaikan base image runtime (Node.js, Python, Go, dll), serta port yang di-`EXPOSE`.
+3. **`docker-compose.yml`:**
+   Ganti teks `nama-project-anda` dengan nama slug proyek Anda, dan sesuaikan port internal di `loadbalancer.server.port`.
 
-Karena **Traefik** sudah aktif di server Anda pada network `web`, Anda hanya perlu melakukan langkah berikut satu kali:
+> [!IMPORTANT]
+> **Aturan Wajib Proyek:**
+> - 🚫 **Zero Host Port:** Dilarang menggunakan `ports:` (hanya gunakan `expose:` internal).
+> - ⚖️ **Batasan Resource:** Wajib mencantumkan limit `cpus: '0.5'` dan `memory: 512M`.
+> - 🌐 **Network:** Wajib terhubung ke network `jumat-ai-web`.
 
-### 1. Buat Network Terisolasi & Hubungkan ke Traefik
-Agar container proyek komunitas tidak dapat mengakses container proyek pribadi Anda di network `web`:
+### 4. Uji Mandiri Secara Lokal
+Pastikan konfigurasi proyek Anda memenuhi semua standar keamanan dan orkestrasi:
 ```bash
-# 1. Buat network khusus komunitas
-docker network create jumat-ai-web
-
-# 2. Hubungkan container Traefik ke network baru ini
-docker network connect jumat-ai-web <nama_container_traefik_anda>
-```
-
-### 2. Siapkan Direktori Target di Server
-```bash
-sudo mkdir -p /var/www/project.jumat.ai.id
-sudo chown -R $USER:$USER /var/www/project.jumat.ai.id
-```
-
-### 3. Konfigurasi GitHub Secrets
-Pada repositori GitHub Anda, buka **Settings > Secrets and variables > Actions**, lalu tambahkan:
-- `SERVER_HOST`: IP publik atau domain server Anda.
-- `SERVER_USER`: Username SSH server Anda (misal: `ubuntu` atau `deploy`).
-- `SERVER_SSH_KEY`: SSH Private Key untuk rsync dan akses eksekusi docker.
-- `SERVER_PORT`: Port SSH server Anda (default: `22`).
-
----
-
-## 🛠️ Pengujian Lokal & Pembuatan Proyek Baru
-
-```bash
-# 1. Validasi seluruh konfigurasi Dockerfile & docker-compose
 npm run validate
-
-# 2. Kompilasi katalog proyek
-npm run build
-
-# 3. Jalankan server lokal untuk melihat tampilan hub katalog
-npm run dev
 ```
+Pastikan seluruh indikator berstatus `✔ [PASS]`.
 
-### 🗺️ Alur Kontribusi Singkat
-1. **Fork & clone** repositori ini.
-2. **Salin template:** `cp -r projects/_template projects/slug-proyek-anda`.
-3. **Sesuaikan:** `project.json`, `Dockerfile`, dan `docker-compose.yml`.
-4. **Validasi mandiri:** jalankan `npm run validate`.
-5. **Kirim PR:** Buka Pull Request ke branch `main`. Sistem otomatis (CI) akan memvalidasi struktur dan menjalankan Code Sniffer.
+### 5. Kirim Pull Request (PR)
+1. Commit dan push perubahan Anda:
+   ```bash
+   git add projects/nama-project-anda/
+   git commit -m "feat: tambah proyek nama-project-anda"
+   git push origin main
+   ```
+2. Buka **Pull Request** ke branch `main` repositori resmi `project-jumat-ai`.
+3. Bot GitHub Actions akan otomatis memvalidasi file orkestrasi dan menjalankan **Code Sniffer** pada repositori kode Anda.
+4. Setelah disetujui dan di-merge oleh pengelola, proyek Anda otomatis live di **`https://project.jumat.ai.id/<nama-project>`**! 🎉
 
-Untuk panduan visual dan teknis lengkap langkah demi langkah bagi kontributor, silakan baca **[CONTRIBUTING.md](file:///D:/AI/project-jumat-ai/CONTRIBUTING.md)**.
+---
 
+## 📚 Dokumentasi Lanjutan (Docs)
+
+Seluruh alur cara kerja internal aplikasi, arsitektur teknis, dan panduan server tersimpan di direktori **[`docs/`](docs/)**:
+
+* 🏛️ **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md):** Penjelasan mendalam arsitektur monorepo, topologi isolasi multi-network Traefik, dan alur kerja GitOps.
+* 🖥️ **[docs/SERVER_SETUP.md](docs/SERVER_SETUP.md):** Panduan setup server VPS produksi, network Docker, dan konfigurasi GitHub Secrets untuk pengelola.
+* 📋 **[docs/TECHNICAL_DEBT.md](docs/TECHNICAL_DEBT.md):** Catatan backlog dan rencana manajemen kredensial mandiri kontributor.
+* 📖 **[CONTRIBUTING.md](CONTRIBUTING.md):** Panduan kontribusi komprehensif beserta diagram visual.
