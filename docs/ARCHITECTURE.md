@@ -1,6 +1,6 @@
 # 🏛️ Arsitektur Sistem — Project Jumat.AI
 
-Dokumen ini menjelaskan rancangan arsitektur teknis, isolasi jaringan, tata kelola container, serta sistem keamanan otomatis platform **project.jumat.ai.id**.
+Dokumen ini menjelaskan rancangan arsitektur teknis, isolasi jaringan, tata kelola container, serta sistem keamanan otomatis platform **projects.jumat.ai.id**.
 
 ---
 
@@ -49,7 +49,7 @@ docker network connect jumat-ai-web <nama_container_traefik_anda>
 ```
 
 Dengan langkah di atas:
-1. Traefik dapat merutekan trafik HTTPS ke proyek komunitas di `project.jumat.ai.id/<nama-project>`.
+1. Traefik dapat merutekan trafik HTTPS ke proyek komunitas di `projects.jumat.ai.id/<nama-project>`.
 2. Proyek komunitas **tidak memiliki akses jaringan sama sekali** ke network `web` tempat proyek pribadi Anda berjalan.
 
 ---
@@ -105,7 +105,7 @@ flowchart TD
         L --> M["Deteksi folder proyek yang berubah via git diff"]
         M --> N["Eksekusi: docker compose up -d --build\nHANYA di folder proyek tersebut"]
         N --> O["Traefik deteksi rute baru via Docker socket"]
-        O --> P["Live di https://project.jumat.ai.id/slug/"]
+        O --> P["Live di https://projects.jumat.ai.id/slug/"]
     end
 ```
 
@@ -120,7 +120,7 @@ Salah satu keunggulan utama arsitektur ini adalah **efisiensi deploy**:
   ```
 * Runner SSH hanya mengeksekusi build pada folder yang bersangkutan:
   ```bash
-  cd /var/www/project.jumat.ai.id/projects/<slug-yang-berubah>
+  cd /var/www/projects.jumat.ai.id/projects/<slug-yang-berubah>
   docker compose up -d --build --remove-orphans
   ```
 * **Keuntungan:** Puluhan proyek lain yang sedang aktif berjalan tidak akan terganggu, tidak mengalami restart, dan server tidak terbebani me-rebuild proyek yang tidak berubah.
@@ -149,20 +149,20 @@ Sebelum kode menyentuh server Anda, GitHub Actions meng-clone repositori kontrib
 
 ## 6. 🏷️ Traefik Routing & Middleware StripPrefix
 
-Setiap proyek disajikan pada sub-path: `project.jumat.ai.id/<slug>`.
+Setiap proyek disajikan pada sub-path: `projects.jumat.ai.id/<slug>`.
 
 Agar aplikasi kontributor tidak perlu mengubah kode routing internalnya, middleware `stripprefix` digunakan:
 ```yaml
 labels:
   - "traefik.enable=true"
   - "traefik.docker.network=jumat-ai-web"
-  - "traefik.http.routers.slug.rule=Host(`project.jumat.ai.id`) && PathPrefix(`/slug`)"
+  - "traefik.http.routers.slug.rule=Host(`projects.jumat.ai.id`) && PathPrefix(`/slug`)"
   - "traefik.http.middlewares.slug-strip.stripprefix.prefixes=/slug"
   - "traefik.http.routers.slug.middlewares=slug-strip"
   - "traefik.http.services.slug.loadbalancer.server.port=3000"
 ```
 Dengan konfigurasi ini:
-* Pengguna mengakses: `https://project.jumat.ai.id/voice-ai/api/generate`
+* Pengguna mengakses: `https://projects.jumat.ai.id/voice-ai/api/generate`
 * Aplikasi di container menerima request bersih: `/api/generate`
 
 ---

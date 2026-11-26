@@ -1,6 +1,6 @@
 # 🖥️ Panduan Setup Server Produksi — Jumat.AI
 
-Dokumen ini ditujukan untuk **pengelola/administrator** server VPS yang menjalankan platform **project.jumat.ai.id**.
+Dokumen ini ditujukan untuk **pengelola/administrator** server VPS yang menjalankan platform **projects.jumat.ai.id**.
 
 ---
 
@@ -23,13 +23,13 @@ docker network connect jumat-ai-web <nama_container_traefik_anda>
 Buat folder root deployment di server VPS:
 
 ```bash
-sudo mkdir -p /var/www/project.jumat.ai.id
-sudo chown -R $USER:$USER /var/www/project.jumat.ai.id
+sudo mkdir -p /var/www/projects.jumat.ai.id
+sudo chown -R $USER:$USER /var/www/projects.jumat.ai.id
 ```
 
 Struktur folder di server nantinya akan tersinkronisasi otomatis:
 ```text
-/var/www/project.jumat.ai.id/
+/var/www/projects.jumat.ai.id/
 ├── hub/                         # Container katalog depan
 └── projects/                    # Folder masing-masing proyek komunitas
     ├── gemini-prompt-crafter/
@@ -58,6 +58,6 @@ Buka repositori GitHub di menu **Settings > Secrets and variables > Actions**, l
 
 Setiap kali Pull Request proyek komunitas di-merge ke branch `main`:
 1. GitHub Action membaca `git diff` untuk menemukan proyek yang berubah.
-2. File disinkronisasi ke `/var/www/project.jumat.ai.id/` via SSH `rsync`.
+2. File disinkronisasi ke `/var/www/projects.jumat.ai.id/` via SSH `rsync`.
 3. Command `docker compose up -d --build --remove-orphans` dieksekusi **hanya di folder proyek yang berubah**.
-4. Traefik otomatis mendeteksi rute baru dan menayangkan aplikasi di `https://project.jumat.ai.id/<slug>/`.
+4. Traefik otomatis mendeteksi rute baru dan menayangkan aplikasi di `https://projects.jumat.ai.id/<slug>/`.

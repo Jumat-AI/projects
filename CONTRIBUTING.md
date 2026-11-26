@@ -1,6 +1,6 @@
 # Panduan Kontribusi Proyek Komunitas — Jumat.AI
 
-Terima kasih atas ketertarikan Anda untuk membagikan karya Anda di **[project.jumat.ai.id](https://project.jumat.ai.id)**! Platform ini adalah wadah terbuka bagi seluruh pembelajar dan praktisi AI di Indonesia.
+Terima kasih atas ketertarikan Anda untuk membagikan karya Anda di **[projects.jumat.ai.id](https://projects.jumat.ai.id)**! Platform ini adalah wadah terbuka bagi seluruh pembelajar dan praktisi AI di Indonesia.
 
 ---
 
@@ -32,7 +32,7 @@ flowchart TD
         L --> M["Deteksi folder yang berubah via git diff"]
         M --> N["Build & up HANYA proyek tersebut:\ndocker compose up -d --build"]
         N --> O["Traefik deteksi rute baru via docker socket"]
-        O --> P["🚀 Live di project.jumat.ai.id/nama-project/\n& Otomatis Muncul di Katalog Depan!"]
+        O --> P["🚀 Live di projects.jumat.ai.id/nama-project/\n& Otomatis Muncul di Katalog Depan!"]
     end
 ```
 
@@ -44,7 +44,7 @@ Untuk menjaga **keamanan**, **stabilitas server bersama**, dan **keadilan resour
 
 1. **Format Aplikasi:** Harus diorkestrasikan menggunakan **Dockerfile** (multi-stage build yang meng-clone kode dari repo GitHub Anda) dan **docker-compose.yml**.
 2. **Konektivitas & Routing:**
-   - DILAYANI melalui subdomain utama: `https://project.jumat.ai.id/<nama-project>`.
+   - DILAYANI melalui subdomain utama: `https://projects.jumat.ai.id/<nama-project>`.
    - **Zero Host Port Exposure:** DILARANG menggunakan deklarasi `ports:`. Hanya gunakan `expose:` untuk port internal container.
    - Wajib terhubung ke network eksternal: `jumat-ai-web`.
 3. **Batasan Resource:**
@@ -146,7 +146,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=jumat-ai-web"
-      - "traefik.http.routers.audio-summarizer.rule=Host(`project.jumat.ai.id`) && PathPrefix(`/audio-summarizer`)"
+      - "traefik.http.routers.audio-summarizer.rule=Host(`projects.jumat.ai.id`) && PathPrefix(`/audio-summarizer`)"
       - "traefik.http.routers.audio-summarizer.entrypoints=websecure"
       - "traefik.http.routers.audio-summarizer.tls=true"
       - "traefik.http.middlewares.audio-summarizer-strip.stripprefix.prefixes=/audio-summarizer"
@@ -175,4 +175,4 @@ Pastikan seluruh indikator berstatus `✔ [PASS]`.
    ```
 2. Buka GitHub repositori utama `project-jumat-ai` dan klik **Compare & pull request**.
 3. Sistem CI otomatis akan memvalidasi file orkestrasi Anda dan menjalankan **Code Sniffer** pada repositori aplikasi Anda.
-4. Setelah diverifikasi dan disetujui oleh pengelola, proyek Anda otomatis di-build dan langsung live di **`https://project.jumat.ai.id/<nama-project>`**! 🎉
+4. Setelah diverifikasi dan disetujui oleh pengelola, proyek Anda otomatis di-build dan langsung live di **`https://projects.jumat.ai.id/<nama-project>`**! 🎉

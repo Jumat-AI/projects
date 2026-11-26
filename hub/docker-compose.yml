@@ -18,7 +18,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=jumat-ai-web"
-      - "traefik.http.routers.jumat-ai-hub.rule=Host(`project.jumat.ai.id`) && PathPrefix(`/`)"
+      - "traefik.http.routers.jumat-ai-hub.rule=Host(`projects.jumat.ai.id`) && PathPrefix(`/`)"
       - "traefik.http.routers.jumat-ai-hub.priority=1"
       - "traefik.http.routers.jumat-ai-hub.entrypoints=websecure"
       - "traefik.http.routers.jumat-ai-hub.tls=true"

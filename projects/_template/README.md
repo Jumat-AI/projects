@@ -1,6 +1,6 @@
 # Template Proyek Komunitas Jumat.AI
 
-Folder ini adalah starter template resmi berbasis **Docker & Traefik** untuk mempublikasikan proyek AI Anda di **project.jumat.ai.id**.
+Folder ini adalah starter template resmi berbasis **Docker & Traefik** untuk mempublikasikan proyek AI Anda di **projects.jumat.ai.id**.
 
 ---
 

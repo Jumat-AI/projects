@@ -1,7 +1,7 @@
 {
   "name": "project-jumat-ai",
   "version": "1.0.0",
-  "description": "Showcase platform & monorepo project komunitas Jumat.AI (project.jumat.ai.id)",
+  "description": "Showcase platform & monorepo project komunitas Jumat.AI (projects.jumat.ai.id)",
   "main": "scripts/serve.js",
   "scripts": {
     "validate": "node scripts/validate-pr.js",

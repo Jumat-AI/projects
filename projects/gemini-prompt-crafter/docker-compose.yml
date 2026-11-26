@@ -18,7 +18,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=jumat-ai-web"
-      - "traefik.http.routers.gemini-prompt-crafter.rule=Host(`project.jumat.ai.id`) && PathPrefix(`/gemini-prompt-crafter`)"
+      - "traefik.http.routers.gemini-prompt-crafter.rule=Host(`projects.jumat.ai.id`) && PathPrefix(`/gemini-prompt-crafter`)"
       - "traefik.http.routers.gemini-prompt-crafter.entrypoints=websecure"
       - "traefik.http.routers.gemini-prompt-crafter.tls=true"
       - "traefik.http.middlewares.gemini-prompt-crafter-strip.stripprefix.prefixes=/gemini-prompt-crafter"

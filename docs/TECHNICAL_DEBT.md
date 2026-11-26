@@ -14,7 +14,7 @@ Dokumen ini mencatat keputusan desain, fitur keamanan lanjutan, dan optimasi ars
 ### Konteks & Latar Belakang
 Saat ini, proyek yang membutuhkan API Key AI atau secret backend disarankan menggunakan:
 1. **BYOK (Bring Your Own Key)** langsung di browser pengguna (Zero risk).
-2. **File `.env` lokal** yang diletakkan manual oleh pengelola di server VPS (`/var/www/project.jumat.ai.id/projects/<slug>/.env`).
+2. **File `.env` lokal** yang diletakkan manual oleh pengelola di server VPS (`/var/www/projects.jumat.ai.id/projects/<slug>/.env`).
 
 Kebutuhan akan fitur serupa *GitLab Project Secure Files* muncul agar kontributor dapat mengunggah file konfigurasi rahasia/kredensial tanpa perlu menghubungi admin secara manual dan tanpa membocorkannya di Pull Request publik.
 
@@ -56,7 +56,7 @@ Setiap kali ada pembaruan kode dan `docker compose up -d --build` dijalankan, Do
 - **Kategori:** Routing & Traefik
 
 ### Konteks
-Saat ini seluruh proyek disajikan melalui path prefix: `project.jumat.ai.id/<nama-project>`.
+Saat ini seluruh proyek disajikan melalui path prefix: `projects.jumat.ai.id/<nama-project>`.
 
 ### Rencana Implementasi
-- Menyediakan opsi di `project.json` bagi proyek yang ingin menggunakan subdomain independen (misal: `voice.project.jumat.ai.id`) dengan wildcard DNS `*.project.jumat.ai.id` dan routing Traefik berbasis `Host(...)`.
+- Menyediakan opsi di `project.json` bagi proyek yang ingin menggunakan subdomain independen (misal: `voice.projects.jumat.ai.id`) dengan wildcard DNS `*.projects.jumat.ai.id` dan routing Traefik berbasis `Host(...)`.

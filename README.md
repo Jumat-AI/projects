@@ -1,8 +1,8 @@
 # Showcase Proyek Komunitas — Jumat.AI
 
-Selamat datang di repositori showcase kreasi komunitas **[project.jumat.ai.id](https://project.jumat.ai.id)**, bagian dari inisiatif belajar bersama **[jumat.ai.id](https://jumat.ai.id)**.
+Selamat datang di repositori showcase kreasi komunitas **[projects.jumat.ai.id](https://projects.jumat.ai.id)**, bagian dari inisiatif belajar bersama **[jumat.ai.id](https://jumat.ai.id)**.
 
-Repositori ini adalah tempat bagi anggota komunitas untuk mempublikasikan aplikasi dan eksperimen AI berbasis Docker agar dapat diakses oleh publik di `https://project.jumat.ai.id/<nama-project>`.
+Repositori ini adalah tempat bagi anggota komunitas untuk mempublikasikan aplikasi dan eksperimen AI berbasis Docker agar dapat diakses oleh publik di `https://projects.jumat.ai.id/<nama-project>`.
 
 ---
 
@@ -58,7 +58,7 @@ Pastikan seluruh indikator berstatus `✔ [PASS]`.
    ```
 2. Buka **Pull Request** ke branch `main` repositori resmi `project-jumat-ai`.
 3. Bot GitHub Actions akan otomatis memvalidasi file orkestrasi dan menjalankan **Code Sniffer** pada repositori kode Anda.
-4. Setelah disetujui dan di-merge oleh pengelola, proyek Anda otomatis live di **`https://project.jumat.ai.id/<nama-project>`**! 🎉
+4. Setelah disetujui dan di-merge oleh pengelola, proyek Anda otomatis live di **`https://projects.jumat.ai.id/<nama-project>`**! 🎉
 
 ---
 

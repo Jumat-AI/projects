@@ -48,11 +48,13 @@ jobs:
         with:
           SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
           ARGS: "-rlgoDzc"
-          SOURCE: "hub/ projects/"
+          # Tanpa trailing slash agar rsync menyalin folder hub/ dan projects/ itu sendiri,
+          # bukan isinya, sehingga hasil di server: TARGET/hub/ dan TARGET/projects/
+          SOURCE: "hub projects"
           REMOTE_HOST: ${{ secrets.SERVER_HOST }}
           REMOTE_USER: ${{ secrets.SERVER_USER }}
           REMOTE_PORT: ${{ secrets.SERVER_PORT || '22' }}
-          TARGET: "/var/www/project.jumat.ai.id/"
+          TARGET: "/var/www/projects.jumat.ai.id/"
           EXCLUDE: "/.git/, /node_modules/, /.github/"
 
       - name: Build & Restart Container Proyek yang Berubah
@@ -70,7 +72,7 @@ jobs:
 
             # 1. Deploy proyek-proyek yang berubah
             for project in ${{ steps.changed-dirs.outputs.projects }}; do
-              PROJECT_DIR="/var/www/project.jumat.ai.id/projects/$project"
+              PROJECT_DIR="/var/www/projects.jumat.ai.id/projects/$project"
               if [ -f "$PROJECT_DIR/docker-compose.yml" ]; then
                 echo "=== Memulai Build & Deploy: $project ==="
                 cd "$PROJECT_DIR"
@@ -83,7 +85,7 @@ jobs:
 
             # 2. Deploy / Refresh Katalog Hub jika ada perubahan
             if [ "${{ steps.changed-dirs.outputs.hub_changed }}" = "true" ] || [ -n "${{ steps.changed-dirs.outputs.projects }}" ]; then
-              HUB_DIR="/var/www/project.jumat.ai.id/hub"
+              HUB_DIR="/var/www/projects.jumat.ai.id/hub"
               if [ -f "$HUB_DIR/docker-compose.yml" ]; then
                 echo "=== Refresh Container Katalog Hub ==="
                 cd "$HUB_DIR"

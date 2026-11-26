@@ -38,8 +38,8 @@ services:
       - "traefik.enable=true"
       # Beritahu Traefik network yang digunakan
       - "traefik.docker.network=jumat-ai-web"
-      # Routing path: project.jumat.ai.id/nama-project-anda
-      - "traefik.http.routers.nama-project-anda.rule=Host(`project.jumat.ai.id`) && PathPrefix(`/nama-project-anda`)"
+      # Routing path: projects.jumat.ai.id/nama-project-anda
+      - "traefik.http.routers.nama-project-anda.rule=Host(`projects.jumat.ai.id`) && PathPrefix(`/nama-project-anda`)"
       - "traefik.http.routers.nama-project-anda.entrypoints=websecure"
       - "traefik.http.routers.nama-project-anda.tls=true"
       # Middleware strip prefix agar aplikasi menerima request dari '/'
