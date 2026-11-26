@@ -7,7 +7,8 @@
     "validate": "node scripts/validate-pr.js",
     "build": "node scripts/build-catalog.js",
     "dev": "node scripts/serve.js",
-    "start": "node scripts/serve.js"
+    "start": "node scripts/serve.js",
+    "test": "node --test scripts/__tests__/*.test.js"
   },
   "keywords": [
     "jumat-ai",

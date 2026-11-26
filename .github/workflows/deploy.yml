@@ -1,95 +1,228 @@
 name: Deploy Otomatis per Proyek ke Server
 
+# Berjalan di SELF-HOSTED RUNNER yang terpasang langsung di server produksi.
+# Panduan setup runner & pengaman wajibnya: docs/SERVER_SETUP.md
 on:
   push:
     branches: [ main ]
     paths:
       - 'projects/**'
       - 'hub/**'
+  workflow_dispatch:
+    inputs:
+      full_deploy:
+        description: 'Deploy ulang SEMUA proyek (mis. setup runner pertama kali)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Cegah dua deploy berjalan bersamaan. Jika ada run yang tertunda lalu digantikan
+# run yang lebih baru, perubahannya tetap ikut ter-deploy karena deteksi perubahan
+# dihitung dari SHA deploy terakhir yang tercatat di server, bukan hanya dari push ini.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  BASE_DIR: /var/www/projects.jumat.ai.id
+  # SHA commit terakhir yang sudah diproses deploy
+  STATE_FILE: /var/www/projects.jumat.ai.id/.last-deployed-sha
+  # Proyek yang gagal di-deploy/dihentikan; otomatis dicoba ulang di run berikutnya
+  FAILED_FILE: /var/www/projects.jumat.ai.id/.failed-projects
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    # Label khusus runner deploy. Runner ini WAJIB berada di runner group yang
+    # dibatasi ke workflow ini saja: Jumat-AI/projects/.github/workflows/deploy.yml@refs/heads/main
+    runs-on: [self-hosted, linux, jumat-ai-deploy]
+    # Deploy menunggu persetujuan reviewer di environment "production".
+    environment: production
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          fetch-depth: 2 # Untuk mendeteksi perubahan commit terakhir
+          fetch-depth: 0             # History lengkap untuk membandingkan dengan SHA deploy terakhir
+          clean: true                # Bersihkan sisa job sebelumnya di workspace runner
+          persist-credentials: false # Jangan simpan token GitHub di workspace runner
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '20'
 
       - name: Install Dependencies & Kompilasi Katalog
         run: |
-          npm install
+          # --ignore-scripts: jangan jalankan lifecycle script npm di server produksi
+          npm ci --ignore-scripts
           node scripts/build-catalog.js
 
       - name: Deteksi Perubahan Folder
         id: changed-dirs
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          FULL_DEPLOY: ${{ inputs.full_deploy }}
         run: |
-          # Cari folder di bawah projects/ yang mengalami perubahan (selain _template)
-          CHANGED_PROJECTS=$(git diff --name-only HEAD~1 HEAD | grep '^projects/' | cut -d'/' -f2 | sort -u | grep -v '^_template' || true)
-          echo "Proyek yang terdeteksi berubah:"
-          echo "$CHANGED_PROJECTS"
-          echo "projects=$CHANGED_PROJECTS" >> $GITHUB_OUTPUT
+          is_commit() {
+            [ -n "$1" ] && ! [[ "$1" =~ ^0+$ ]] && git cat-file -e "${1}^{commit}" 2>/dev/null
+          }
 
-          # Cek apakah folder hub/ juga berubah
-          HUB_CHANGED=$(git diff --name-only HEAD~1 HEAD | grep '^hub/' || true)
-          if [ -n "$HUB_CHANGED" ]; then
-            echo "hub_changed=true" >> $GITHUB_OUTPUT
+          LAST_DEPLOYED=$(tr -d '[:space:]' 2>/dev/null < "$STATE_FILE" || true)
+
+          if [ "$FULL_DEPLOY" = "true" ]; then
+            echo "Mode full deploy: semua proyek akan di-deploy ulang."
+            BASE=""
+          elif is_commit "$LAST_DEPLOYED"; then
+            # Tolak run lama (mis. "Re-run" run sebelumnya) agar produksi tidak mundur versi.
+            if ! git merge-base --is-ancestor "$LAST_DEPLOYED" HEAD; then
+              echo "::error::Commit ini ($GITHUB_SHA) bukan turunan dari deploy terakhir ($LAST_DEPLOYED). Kemungkinan ini run lama yang dijalankan ulang, atau history main ditulis ulang. Jalankan workflow manual dengan full_deploy bila memang disengaja."
+              exit 1
+            fi
+            BASE="$LAST_DEPLOYED"
+          elif is_commit "$BEFORE_SHA" && git merge-base --is-ancestor "$BEFORE_SHA" HEAD; then
+            # State belum ada / rusak: masih aman memakai rentang push ini, tapi beri peringatan.
+            echo "::warning::File state $STATE_FILE tidak ada atau tidak valid. Hanya perubahan dari push ini yang di-deploy. Jalankan full_deploy bila ada push sebelumnya yang terlewat."
+            BASE="$BEFORE_SHA"
           else
-            echo "hub_changed=false" >> $GITHUB_OUTPUT
+            echo "::error::Tidak ada basis pembanding yang valid (state $STATE_FILE tidak ada dan commit sebelum push tidak tersedia). Jalankan workflow manual dengan opsi full_deploy."
+            exit 1
           fi
 
-      - name: Sinkronisasi File Hub & Proyek ke Server
-        uses: easingthemes/ssh-deploy@v5.0.3
-        with:
-          SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
-          ARGS: "-rlgoDzc"
-          # Tanpa trailing slash agar rsync menyalin folder hub/ dan projects/ itu sendiri,
-          # bukan isinya, sehingga hasil di server: TARGET/hub/ dan TARGET/projects/
-          SOURCE: "hub projects"
-          REMOTE_HOST: ${{ secrets.SERVER_HOST }}
-          REMOTE_USER: ${{ secrets.SERVER_USER }}
-          REMOTE_PORT: ${{ secrets.SERVER_PORT || '22' }}
-          TARGET: "/var/www/projects.jumat.ai.id/"
-          EXCLUDE: "/.git/, /node_modules/, /.github/"
+          if [ -n "$BASE" ]; then
+            echo "Membandingkan $BASE..HEAD"
+            # --no-renames: rename projects/a -> projects/b harus terbaca sebagai a dihapus + b ditambah.
+            CHANGED_FILES=$(git -c core.quotepath=off diff --no-renames --name-only "$BASE" HEAD)
+            CANDIDATES=$(grep '^projects/' <<< "$CHANGED_FILES" | cut -d'/' -f2 | sort -u || true)
+          else
+            CHANGED_FILES=""
+            CANDIDATES=$(ls -1 projects)
+          fi
+
+          # Coba ulang proyek yang gagal di run sebelumnya.
+          if [ -f "$FAILED_FILE" ]; then
+            PREV_FAILED=$(cat "$FAILED_FILE")
+            echo "Mencoba ulang proyek yang gagal sebelumnya: $(tr '\n' ' ' <<< "$PREV_FAILED")"
+            CANDIDATES=$(printf '%s\n%s\n' "$CANDIDATES" "$PREV_FAILED" | sort -u)
+          fi
+
+          # Abaikan _template. Nama folder harus diawali huruf/angka/underscore (bukan '-' atau '.')
+          # agar aman dipakai di shell.
+          ALL_PROJECTS=$(grep -v '^_template$' <<< "$CANDIDATES" | grep -E '^[A-Za-z0-9_][A-Za-z0-9._-]*$' || true)
+
+          DEPLOY_PROJECTS=""
+          REMOVED_PROJECTS=""
+          for p in $ALL_PROJECTS; do
+            if [ -d "projects/$p" ]; then
+              DEPLOY_PROJECTS="$DEPLOY_PROJECTS $p"
+            else
+              REMOVED_PROJECTS="$REMOVED_PROJECTS $p"
+            fi
+          done
+          # Satu baris dipisah spasi (GITHUB_OUTPUT tidak menerima nilai multi-baris tanpa delimiter).
+          DEPLOY_PROJECTS="${DEPLOY_PROJECTS# }"
+          REMOVED_PROJECTS="${REMOVED_PROJECTS# }"
+
+          if [ -z "$BASE" ] || grep -q '^hub/' <<< "$CHANGED_FILES"; then
+            HUB_CHANGED=true
+          else
+            HUB_CHANGED=false
+          fi
+
+          echo "Proyek yang di-deploy: ${DEPLOY_PROJECTS:-(tidak ada)}"
+          echo "Proyek yang dihapus:   ${REMOVED_PROJECTS:-(tidak ada)}"
+          echo "Hub berubah:           $HUB_CHANGED"
+          {
+            echo "projects=$DEPLOY_PROJECTS"
+            echo "removed=$REMOVED_PROJECTS"
+            echo "hub_changed=$HUB_CHANGED"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Sinkronisasi File Hub & Proyek ke Direktori Produksi
+        run: |
+          # Tanpa trailing slash agar hasilnya BASE_DIR/hub/ dan BASE_DIR/projects/.
+          # Sengaja tanpa --delete: file runtime di server (.env, data volume) tidak terhapus.
+          # Proyek yang dihapus dari repo ditangani di step berikutnya.
+          # -E: ikut menyalin perubahan bit executable (mis. entrypoint yang di-chmod +x).
+          rsync -rlDcE --exclude='.git/' --exclude='node_modules/' --exclude='.github/' \
+            hub projects "$BASE_DIR/"
 
       - name: Build & Restart Container Proyek yang Berubah
-        uses: appleboy/ssh-action@v1.0.3
-        if: steps.changed-dirs.outputs.projects != '' || steps.changed-dirs.outputs.hub_changed == 'true'
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT || 22 }}
-          script: |
-            echo "=== MEMPROSES DEPLOY CONTAINER ==="
-            # Pastikan network isolasi jumat-ai-web ada
-            docker network inspect jumat-ai-web >/dev/null 2>&1 || docker network create jumat-ai-web
+        env:
+          DEPLOY_PROJECTS: ${{ steps.changed-dirs.outputs.projects }}
+          REMOVED_PROJECTS: ${{ steps.changed-dirs.outputs.removed }}
+          HUB_CHANGED: ${{ steps.changed-dirs.outputs.hub_changed }}
+        run: |
+          # Kegagalan satu proyek TIDAK menghentikan proyek lain; semua kegagalan
+          # dikumpulkan, dicatat ke FAILED_FILE, dan run ditandai gagal di akhir.
+          FAILED=()
 
-            # 1. Deploy proyek-proyek yang berubah
-            for project in ${{ steps.changed-dirs.outputs.projects }}; do
-              PROJECT_DIR="/var/www/projects.jumat.ai.id/projects/$project"
-              if [ -f "$PROJECT_DIR/docker-compose.yml" ]; then
-                echo "=== Memulai Build & Deploy: $project ==="
-                cd "$PROJECT_DIR"
-                docker compose up -d --build --remove-orphans
-                echo "✔ Selesai deploy $project!"
-              else
-                echo "Lewati $project: docker-compose.yml tidak ditemukan."
-              fi
-            done
+          echo "=== MEMPROSES DEPLOY CONTAINER ==="
+          # Pastikan network isolasi jumat-ai-web ada
+          docker network inspect jumat-ai-web >/dev/null 2>&1 || docker network create jumat-ai-web
 
-            # 2. Deploy / Refresh Katalog Hub jika ada perubahan
-            if [ "${{ steps.changed-dirs.outputs.hub_changed }}" = "true" ] || [ -n "${{ steps.changed-dirs.outputs.projects }}" ]; then
-              HUB_DIR="/var/www/projects.jumat.ai.id/hub"
-              if [ -f "$HUB_DIR/docker-compose.yml" ]; then
-                echo "=== Refresh Container Katalog Hub ==="
-                cd "$HUB_DIR"
-                docker compose up -d --build --remove-orphans
+          # 1. Hentikan & arsipkan proyek yang dihapus dari repo
+          #    (dipindah, bukan dihapus permanen, agar data masih bisa dipulihkan).
+          #    Folder HANYA diarsipkan bila container berhasil dihentikan.
+          for project in $REMOVED_PROJECTS; do
+            PROJECT_DIR="$BASE_DIR/projects/$project"
+            [ -d "$PROJECT_DIR" ] || continue
+            echo "=== Menghentikan proyek yang dihapus: $project ==="
+            if [ -f "$PROJECT_DIR/docker-compose.yml" ] && ! (cd "$PROJECT_DIR" && docker compose down --remove-orphans); then
+              echo "::error::Gagal menghentikan $project; folder tidak diarsipkan dan akan dicoba ulang."
+              FAILED+=("$project")
+              continue
+            fi
+            mkdir -p "$BASE_DIR/_archived"
+            mv "$PROJECT_DIR" "$BASE_DIR/_archived/${project}-$(date +%Y%m%d%H%M%S)"
+            echo "✔ $project dihentikan dan diarsipkan ke $BASE_DIR/_archived/"
+          done
+
+          # 2. Deploy proyek-proyek yang berubah
+          for project in $DEPLOY_PROJECTS; do
+            PROJECT_DIR="$BASE_DIR/projects/$project"
+            if [ ! -f "$PROJECT_DIR/docker-compose.yml" ]; then
+              echo "Lewati $project: docker-compose.yml tidak ditemukan."
+              continue
+            fi
+            echo "=== Memulai Build & Deploy: $project ==="
+            if (cd "$PROJECT_DIR" && docker compose up -d --build --remove-orphans); then
+              echo "✔ Selesai deploy $project!"
+            else
+              echo "::error::Deploy $project gagal; akan dicoba ulang di run berikutnya."
+              FAILED+=("$project")
+            fi
+          done
+
+          # 3. Refresh Katalog Hub jika hub atau daftar proyek berubah
+          if [ "$HUB_CHANGED" = "true" ] || [ -n "$DEPLOY_PROJECTS" ] || [ -n "$REMOVED_PROJECTS" ]; then
+            HUB_DIR="$BASE_DIR/hub"
+            if [ -f "$HUB_DIR/docker-compose.yml" ]; then
+              echo "=== Refresh Container Katalog Hub ==="
+              if (cd "$HUB_DIR" && docker compose up -d --build --remove-orphans); then
                 echo "✔ Katalog Hub terbarui!"
+              else
+                # Hub tidak dicatat di FAILED_FILE; state tidak dimajukan agar hub ikut dicoba ulang.
+                echo "::error::Refresh Hub gagal."
+                exit 1
               fi
             fi
+          fi
+
+          # 4. Catat hasil (tulis ke file sementara lalu mv agar atomik).
+          if [ ${#FAILED[@]} -gt 0 ]; then
+            printf '%s\n' "${FAILED[@]}" > "$FAILED_FILE.tmp" && mv "$FAILED_FILE.tmp" "$FAILED_FILE"
+          else
+            rm -f "$FAILED_FILE"
+          fi
+          echo "$GITHUB_SHA" > "$STATE_FILE.tmp" && mv "$STATE_FILE.tmp" "$STATE_FILE"
+
+          if [ ${#FAILED[@]} -gt 0 ]; then
+            echo "::error::Proyek yang gagal: ${FAILED[*]} (tercatat di $FAILED_FILE)"
+            exit 1
+          fi
+          echo "✔ Deploy selesai. SHA $GITHUB_SHA tercatat di $STATE_FILE"

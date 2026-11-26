@@ -30,17 +30,18 @@ cp -r projects/_template projects/audio-summarizer
 Buka folder `projects/<nama-project>/` dan sesuaikan 3 file berikut:
 
 1. **`project.json`:**
-   Isi informasi slug, judul, deskripsi, link repositori aplikasi asli Anda di GitHub (`repo_url`), port internal aplikasi (`internal_port`), dan profil pembuat.
+   Isi informasi slug, judul, deskripsi, link repositori aplikasi asli Anda di GitHub (`repo_url`), hash commit lengkap 40 karakter yang akan di-deploy (`commit_sha`, dari `git rev-parse HEAD`), port internal aplikasi (`internal_port`), dan profil pembuat.
 2. **`Dockerfile`:**
-   Pastikan `REPO_URL` mengarah ke repositori Anda, sesuaikan base image runtime (Node.js, Python, Go, dll), serta port yang di-`EXPOSE`.
+   Pastikan `REPO_URL` dan `COMMIT_SHA` sama dengan `repo_url` dan `commit_sha` di `project.json`, sesuaikan base image runtime (Node.js, Python, Go, dll), serta port yang di-`EXPOSE`.
 3. **`docker-compose.yml`:**
-   Ganti teks `nama-project-anda` dengan nama slug proyek Anda, dan sesuaikan port internal di `loadbalancer.server.port`.
+   Ganti teks `nama-project-anda` dengan nama slug proyek Anda, isi `REPO_URL` & `COMMIT_SHA` di `build.args` (sama dengan `project.json`), dan sesuaikan port internal di `loadbalancer.server.port`.
 
 > [!IMPORTANT]
 > **Aturan Wajib Proyek:**
 > - 🚫 **Zero Host Port:** Dilarang menggunakan `ports:` (hanya gunakan `expose:` internal).
-> - ⚖️ **Batasan Resource:** Wajib mencantumkan limit `cpus: '0.5'` dan `memory: 512M`.
+> - ⚖️ **Batasan Resource:** Setiap service wajib mencantumkan limit, dengan **total per proyek** maksimal `cpus: '0.5'` dan `memory: 512M`.
 > - 🌐 **Network:** Wajib terhubung ke network `jumat-ai-web`.
+> - 📌 **Pinning Commit:** Kode aplikasi wajib dikunci ke satu commit (`commit_sha` 40 karakter), bukan branch. Untuk update aplikasi, kirim PR baru yang mengganti `commit_sha`.
 
 ### 4. Uji Mandiri Secara Lokal
 Pastikan konfigurasi proyek Anda memenuhi semua standar keamanan dan orkestrasi:
@@ -67,6 +68,6 @@ Pastikan seluruh indikator berstatus `✔ [PASS]`.
 Seluruh alur cara kerja internal aplikasi, arsitektur teknis, dan panduan server tersimpan di direktori **[`docs/`](docs/)**:
 
 * 🏛️ **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md):** Penjelasan mendalam arsitektur monorepo, topologi isolasi multi-network Traefik, dan alur kerja GitOps.
-* 🖥️ **[docs/SERVER_SETUP.md](docs/SERVER_SETUP.md):** Panduan setup server VPS produksi, network Docker, dan konfigurasi GitHub Secrets untuk pengelola.
+* 🖥️ **[docs/SERVER_SETUP.md](docs/SERVER_SETUP.md):** Panduan setup server VPS produksi, network Docker, self-hosted runner deploy, dan pengaman wajib di GitHub untuk pengelola.
 * 📋 **[docs/TECHNICAL_DEBT.md](docs/TECHNICAL_DEBT.md):** Catatan backlog dan rencana manajemen kredensial mandiri kontributor.
 * 📖 **[CONTRIBUTING.md](CONTRIBUTING.md):** Panduan kontribusi komprehensif beserta diagram visual.

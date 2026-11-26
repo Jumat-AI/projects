@@ -3,7 +3,7 @@
   "title": "Nama Project Anda",
   "description": "Jelaskan secara singkat kegunaan project AI ini dalam 1-2 kalimat yang menarik.",
   "repo_url": "https://github.com/username_anda/repo-proyek-anda",
-  "branch": "main",
+  "commit_sha": "0000000000000000000000000000000000000000",
   "internal_port": 3000,
   "author": {
     "name": "Nama Lengkap Anda",

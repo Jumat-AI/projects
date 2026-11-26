@@ -1,0 +1,41 @@
+# ==============================================================================
+# CODEOWNERS — Jumat-AI/projects
+# ==============================================================================
+# File ini baru BERLAKU setelah ruleset/branch protection untuk branch `main`
+# mengaktifkan "Require review from Code Owners" (lihat docs/SERVER_SETUP.md).
+#
+# Aturan dibaca dari atas ke bawah; baris yang cocok PALING BAWAH yang menang.
+# Pengelola: @hoaaah. Bisa diganti/ditambah username lain
+# (atau tim organisasi, mis. @Jumat-AI/maintainers).
+# ==============================================================================
+
+# Default: semua file wajib di-review pengelola.
+*                           @hoaaah
+
+# ------------------------------------------------------------------------------
+# Folder proyek komunitas.
+# Boleh ditambah reviewer lain (mis. tim kurator) tanpa melonggarkan file sensitif.
+# ------------------------------------------------------------------------------
+/projects/                  @hoaaah
+
+# ------------------------------------------------------------------------------
+# FILE SENSITIF: dieksekusi di server produksi (self-hosted runner) setelah merge.
+# Didefinisikan di bawah /projects/ agar tetap dimiliki pengelola meskipun
+# aturan /projects/ di atas dilonggarkan.
+# ------------------------------------------------------------------------------
+# Workflow CI/CD & file ini sendiri
+/.github/                   @hoaaah
+
+# Script yang dijalankan workflow (validator, sniffer, build katalog)
+/scripts/                   @hoaaah
+
+# Dependency npm (dipasang di runner produksi)
+/package.json               @hoaaah
+/package-lock.json          @hoaaah
+
+# Katalog hub (di-build & dijalankan sebagai container di server)
+/hub/                       @hoaaah
+
+# Template acuan kontributor & konfigurasi reverse proxy
+/projects/_template/        @hoaaah
+/nginx/                     @hoaaah

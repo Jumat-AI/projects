@@ -6,13 +6,23 @@
 # ------------------------------------------------------------------------------
 # STAGE 1: Cloner (Mengambil kode dari repo GitHub Anda)
 # ------------------------------------------------------------------------------
+# WAJIB: kode dikunci ke satu commit (COMMIT_SHA, 40 karakter hex), BUKAN branch.
+# Dengan begitu kode yang di-deploy selalu sama dengan kode yang di-review saat PR.
+# Untuk merilis versi baru, ganti COMMIT_SHA lewat Pull Request baru.
+# Nilai REPO_URL & COMMIT_SHA di sini, di docker-compose.yml (build.args), dan di
+# project.json (repo_url & commit_sha) harus sama persis.
+# ------------------------------------------------------------------------------
 FROM alpine/git:latest AS cloner
 ARG REPO_URL="https://github.com/username_anda/repo-proyek-anda.git"
-ARG BRANCH="main"
+ARG COMMIT_SHA="0000000000000000000000000000000000000000"
 WORKDIR /source
 
-# Clone shallow (kedalaman 1) agar proses build cepat dan hemat bandwidth
-RUN git clone --depth 1 --branch ${BRANCH} ${REPO_URL} . && \
+# Fetch shallow tepat di commit yang dikunci, lalu pastikan HEAD sesuai COMMIT_SHA
+RUN git init -q . && \
+    git remote add origin "${REPO_URL}" && \
+    git fetch -q --depth 1 origin "${COMMIT_SHA}" && \
+    git checkout -q FETCH_HEAD && \
+    test "$(git rev-parse HEAD)" = "${COMMIT_SHA}" && \
     rm -rf .git
 
 # ------------------------------------------------------------------------------

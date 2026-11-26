@@ -16,11 +16,16 @@ flowchart TD
     end
 
     subgraph GitHubCI["2. Di Cloud GitHub (CI & Sniffer)"]
-        E --> F["GitHub Actions: pr-validation.yml"]
-        F --> G{"Linter Orkestrasi:\n- Zero host ports?\n- CPU <= 0.5 & RAM <= 512M?\n- Network jumat-ai-web?"}
-        G -- Tidak --> H["PR Gagal (Beri feedback di PR)"]
+        E --> F["GitHub Actions: pr-validation.yml\n(token read-only, aman untuk PR dari fork)"]
+        F --> G{"Linter Orkestrasi:\n- Zero host ports?\n- Total CPU <= 0.5 & RAM <= 512M per proyek?\n- Network jumat-ai-web?"}
+        G -- Tidak --> H["Validasi Gagal"]
         G -- Ya --> I["Clone sementara repo kontributor\n& Jalankan Code Sniffer (Malware/Miner/Secret)"]
-        I -- Bersih --> J["Bot Beri Centang Hijau: Lolos Validasi!"]
+        I -- Temuan --> H
+        I -- Bersih --> J["Validasi Lolos: Centang Hijau"]
+        H --> R["Simpan hasil sebagai artifact"]
+        J --> R
+        R --> S["GitHub Actions: pr-comment.yml\n(dipicu workflow_run)"]
+        S --> T["Bot pasang / perbarui SATU komentar\nhasil validasi di PR"]
     end
 
     subgraph AdminAction["3. Di Sisi Pengelola"]
@@ -28,9 +33,12 @@ flowchart TD
     end
 
     subgraph ServerDeploy["4. Di Server VPS (CD)"]
-        K --> L["GitHub Actions: deploy.yml via SSH"]
-        L --> M["Deteksi folder yang berubah via git diff"]
-        M --> N["Build & up HANYA proyek tersebut:\ndocker compose up -d --build"]
+        K --> L["GitHub Actions: deploy.yml\n(self-hosted runner, menunggu persetujuan pengelola)"]
+        L --> M["Deteksi folder yang berubah via git diff\n(seluruh commit dalam push)"]
+        M --> Q{"Folder proyek\nmasih ada?"}
+        Q -- Dihapus --> X["docker compose down\n& arsipkan ke _archived/"]
+        X --> Z["Proyek offline & hilang dari Katalog Depan"]
+        Q -- Ada --> N["Build & up HANYA proyek tersebut:\ndocker compose up -d --build"]
         N --> O["Traefik deteksi rute baru via docker socket"]
         O --> P["🚀 Live di projects.jumat.ai.id/nama-project/\n& Otomatis Muncul di Katalog Depan!"]
     end
@@ -48,11 +56,17 @@ Untuk menjaga **keamanan**, **stabilitas server bersama**, dan **keadilan resour
    - **Zero Host Port Exposure:** DILARANG menggunakan deklarasi `ports:`. Hanya gunakan `expose:` untuk port internal container.
    - Wajib terhubung ke network eksternal: `jumat-ai-web`.
 3. **Batasan Resource:**
-   - **CPU:** Maksimal `0.5` vCPU (`deploy.resources.limits.cpus: '0.5'`).
-   - **RAM:** Maksimal `512 MB` (`deploy.resources.limits.memory: 512M`).
-4. **Keamanan & Standar Kode:**
-   - Dilarang menggunakan `privileged: true`.
-   - Dilarang me-mount volume direktori sistem host (`/`, `/var`, `/etc`, atau `docker.sock`).
+   - Batas berlaku **per proyek**: jumlah `deploy.resources.limits` dari **semua** service di `docker-compose.yml`.
+   - **CPU:** Total maksimal `0.5` vCPU (mis. satu service `cpus: '0.5'`, atau aplikasi `0.35` + database `0.15`).
+   - **RAM:** Total maksimal `512 MB` (mis. satu service `memory: 512M`, atau aplikasi `384M` + database `128M`).
+   - Setiap service tetap wajib mencantumkan `limits` sendiri.
+4. **Keamanan & Standar Kode** (berlaku untuk **setiap** service di `docker-compose.yml`):
+   - Hanya opsi service yang ada di daftar izin validator yang boleh dipakai. `privileged`, `network_mode`, `pid`, `cap_add`, `devices`, dan opsi tingkat host lainnya ditolak.
+   - Dilarang bind-mount path apa pun dari host (termasuk `./data` atau `../`). Gunakan **named volume** yang dideklarasikan di bagian `volumes:` top-level.
+   - Dilarang memakai variabel `${...}`, `$VAR`, atau `$$` di file compose, termasuk di `environment`. Tulis nilai literal.
+   - Nama service wajib sama dengan slug atau diawali `<slug>-` (mis. `audio-summarizer`, `audio-summarizer-db`), agar tidak bentrok dengan proyek lain di network bersama.
+   - Rule router Traefik wajib persis `Host(\`projects.jumat.ai.id\`) && PathPrefix(\`/<slug>\`)`, dan nama router/middleware wajib diawali slug. Middleware yang diizinkan hanya `stripprefix`.
+   - Dilarang menyertakan symlink, file `.env`, atau file compose alternatif (`compose.yaml`, `docker-compose.override.yml`, dll.) di folder proyek.
    - Repositori kode Anda akan dipindai oleh **Code Sniffer** otomatis saat Pull Request untuk memastikan bebas dari malware, script crypto-mining, reverse shell, dan kebocoran kredensial pribadi.
 
 ---
@@ -83,7 +97,7 @@ Buka file `project.json` di dalam folder proyek Anda:
   "title": "Audio AI Summarizer",
   "description": "Ringkas file audio panjang menggunakan Whisper dan LLM.",
   "repo_url": "https://github.com/username_anda/audio-summarizer-app",
-  "branch": "main",
+  "commit_sha": "3f9c2a1e8b7d6c5f4e3a2b1c0d9e8f7a6b5c4d3e",
   "internal_port": 8000,
   "author": {
     "name": "Nama Lengkap Anda",
@@ -101,14 +115,22 @@ Buka file `project.json` di dalam folder proyek Anda:
 }
 ```
 
+> [!IMPORTANT]
+> **Aturan Pinning Commit:** `commit_sha` wajib berisi hash commit **lengkap (40 karakter)** dari repo aplikasi Anda, bukan nama branch. Dapatkan dengan `git rev-parse HEAD` di repo aplikasi Anda, dan pastikan commit tersebut sudah di-push. Server hanya mem-build kode di commit itu, sehingga kode yang berjalan selalu sama dengan kode yang di-review. Untuk merilis versi baru, kirim PR baru yang mengganti `commit_sha`.
+
 ### 4. Sesuaikan `projects/<slug>/Dockerfile`
-Pastikan argumen `REPO_URL` dan `BRANCH` mengarah ke repositori aplikasi Anda:
+Pastikan argumen `REPO_URL` dan `COMMIT_SHA` sama persis dengan `repo_url` dan `commit_sha` di `project.json`. Jangan ganti blok `git fetch` dengan `git clone`; validator akan menolaknya.
 ```dockerfile
 FROM alpine/git:latest AS cloner
 ARG REPO_URL="https://github.com/username_anda/audio-summarizer-app.git"
-ARG BRANCH="main"
+ARG COMMIT_SHA="3f9c2a1e8b7d6c5f4e3a2b1c0d9e8f7a6b5c4d3e"
 WORKDIR /source
-RUN git clone --depth 1 --branch ${BRANCH} ${REPO_URL} . && rm -rf .git
+RUN git init -q . && \
+    git remote add origin "${REPO_URL}" && \
+    git fetch -q --depth 1 origin "${COMMIT_SHA}" && \
+    git checkout -q FETCH_HEAD && \
+    test "$(git rev-parse HEAD)" = "${COMMIT_SHA}" && \
+    rm -rf .git
 
 # Ganti base image sesuai bahasa aplikasi Anda (Python / Node / dll)
 FROM python:3.11-slim AS runner
@@ -126,13 +148,13 @@ Ganti seluruh teks `nama-project-anda` dengan nama slug proyek Anda dan pastikan
 version: '3.8'
 
 services:
-  app:
+  audio-summarizer:   # nama service WAJIB = slug (atau diawali "<slug>-")
     container_name: jumat-ai-audio-summarizer
     build:
       context: .
       args:
         REPO_URL: "https://github.com/username_anda/audio-summarizer-app.git"
-        BRANCH: "main"
+        COMMIT_SHA: "3f9c2a1e8b7d6c5f4e3a2b1c0d9e8f7a6b5c4d3e"
     restart: unless-stopped
     expose:
       - "8000"
@@ -158,6 +180,59 @@ networks:
     name: jumat-ai-web
     external: true
 ```
+
+#### (Opsional) Menambahkan Database atau Object Storage
+Aplikasi Anda wajib di-build dari `Dockerfile` proyek. Image siap pakai (`image:` tanpa `build:`) **hanya** diizinkan untuk database dan object storage S3-compatible berikut: `postgres`, `pgvector/pgvector`, `mysql`, `mariadb`, `mongo`, `redis`, `valkey/valkey`, `qdrant/qdrant`, `chromadb/chroma`, `minio/minio`.
+
+Syaratnya:
+- Image **wajib dipin digest** (`nama:tag@sha256:<64 karakter hex>`). Dapatkan digest dengan `docker buildx imagetools inspect postgres:16-alpine`.
+- Service database **tidak boleh** punya label `traefik.*` dan **tidak boleh** tersambung ke network `jumat-ai-web`. Hubungkan lewat network internal proyek.
+- Tetap wajib memakai named volume dan batasan resource. Jatah `0.5` vCPU & `512M` dibagi untuk aplikasi **dan** database, jadi kurangi limit service aplikasi Anda.
+
+```yaml
+services:
+  audio-summarizer:
+    # ... konfigurasi aplikasi seperti di atas, dengan perubahan:
+    networks:
+      - traefik-net
+      - internal
+    environment:
+      DATABASE_URL: "postgresql://app:app@audio-summarizer-db:5432/app"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.35'     # 0.35 + 0.15 (db) = 0.5 vCPU per proyek
+          memory: 384M     # 384M + 128M (db) = 512M per proyek
+
+  audio-summarizer-db:
+    image: postgres:16-alpine@sha256:<ganti-dengan-digest-64-hex>
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          cpus: '0.15'
+          memory: 128M
+
+volumes:
+  db-data:
+
+networks:
+  traefik-net:
+    name: jumat-ai-web
+    external: true
+  internal: {}
+```
+
+> [!NOTE]
+> Karena variabel `${...}` dilarang, kredensial database ditulis literal di file compose. Database hanya bisa diakses dari network internal proyek Anda, jadi jangan gunakan kredensial yang Anda pakai di tempat lain.
 
 ### 6. Uji Validasi Mandiri
 Jalankan skrip pengujian otomatis sebelum melakukan commit:

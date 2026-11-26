@@ -1,0 +1,80 @@
+name: Komentar Hasil Validasi PR
+
+# Dipicu setelah "Validasi PR & Code Sniffer Proyek" selesai.
+# Workflow ini berjalan dari branch main (bukan kode PR), sehingga aman
+# diberi izin tulis dan tetap bisa berkomentar di PR yang berasal dari fork.
+on:
+  workflow_run:
+    workflows: ["Validasi PR & Code Sniffer Proyek"]
+    types: [completed]
+
+permissions:
+  actions: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.event == 'pull_request'
+    steps:
+      - name: Unduh Hasil Validasi
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: pr-validation-result
+          path: pr-result
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pasang / Perbarui Komentar di PR
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        with:
+          script: |
+            const fs = require('fs');
+            // Artifact berasal dari run yang menjalankan kode PR: anggap tidak tepercaya.
+            const prNumber = Number.parseInt(fs.readFileSync('pr-result/pr_number', 'utf8').trim(), 10);
+            const status = fs.readFileSync('pr-result/status', 'utf8').trim();
+            if (!Number.isInteger(prNumber) || prNumber <= 0) {
+              core.setFailed('Nomor PR pada artifact tidak valid.');
+              return;
+            }
+
+            // Pastikan nomor PR benar-benar milik commit yang divalidasi.
+            const { owner, repo } = context.repo;
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            if (pr.head.sha !== context.payload.workflow_run.head_sha) {
+              core.info(`Lewati: head SHA PR #${prNumber} tidak cocok dengan run yang divalidasi (mungkin sudah ada commit baru).`);
+              return;
+            }
+
+            // Pakai kesimpulan run sebenarnya; status dari artifact hanya sebagai cadangan.
+            const success = context.payload.workflow_run.conclusion === 'success' && status === 'success';
+
+            // Daftar file diambil langsung dari API GitHub (tepercaya), bukan dari artifact.
+            // File di luar projects/<slug>/ (atau di projects/_template/) dieksekusi di server setelah merge.
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner, repo, pull_number: prNumber, per_page: 100,
+            });
+            const isSensitive = (p) => !/^projects\/[^/]+\//.test(p) || p.startsWith('projects/_template/');
+            const sensitive = [...new Set(files.flatMap(f => [f.filename, f.previous_filename].filter(Boolean)))]
+              .filter(isSensitive);
+            const sensitiveNote = sensitive.length === 0 ? '' :
+              `\n\n> [!WARNING]\n> PR ini mengubah **${sensitive.length} file di luar folder proyek**. File berikut dieksekusi di server produksi setelah merge dan **wajib di-review manual** oleh pengelola:\n` +
+              sensitive.slice(0, 30).map(p => `> - \`${p.replace(/`/g, '')}\``).join('\n') +
+              (sensitive.length > 30 ? `\n> - …dan ${sensitive.length - 30} file lain` : '');
+
+            const marker = '<!-- jumat-ai-pr-validation -->';
+            const body = success
+              ? `${marker}\n🎉 **Verifikasi Otomatis Berhasil!**\n\n- ✔ Dockerfile & docker-compose.yml memenuhi standar Traefik\n- ✔ Zero Host Port Exposure (tidak ada port berbahaya diekspos)\n- ✔ Total batasan resource per proyek CPU (<= 0.5) & RAM (<= 512MB) valid\n- ✔ Terhubung ke network terisolasi \`jumat-ai-web\`\n- ✔ Code Sniffer bersih (bebas malware, crypto miner, dan secret bocor)${sensitiveNote}\n\nPengelola Jumat.AI akan segera meninjau PR ini untuk di-merge.\n\n_Commit: \`${pr.head.sha.slice(0, 7)}\`_`
+              : `${marker}\n❌ **Verifikasi Otomatis Gagal!**\n\nAda aturan konfigurasi atau keamanan yang belum terpenuhi. Silakan periksa [log pemeriksaan](${context.payload.workflow_run.html_url}) untuk detail kesalahan dan perbaiki pada commit berikutnya.${sensitiveNote}\n\n_Commit: \`${pr.head.sha.slice(0, 7)}\`_`;
+
+            // Perbarui komentar lama (jika ada) agar tidak menumpuk.
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number: prNumber, per_page: 100,
+            });
+            const existing = comments.find(c => c.user?.login === 'github-actions[bot]' && c.body?.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+            }

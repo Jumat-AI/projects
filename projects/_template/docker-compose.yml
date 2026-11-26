@@ -4,18 +4,19 @@ version: '3.8'
 # DOCKER-COMPOSE TEMPLATE PROYEK KOMUNITAS JUMAT.AI
 # Aturan Keamanan Wajib:
 # 1. DILARANG menggunakan 'ports:' (port mapping ke host dilarang demi keamanan)
-# 2. WAJIB menggunakan batasan resource CPU (maks 0.5) dan Memory (maks 512M)
+# 2. WAJIB menggunakan batasan resource; TOTAL semua service maks CPU 0.5 & Memory 512M per proyek
 # 3. WAJIB terhubung ke network terisolasi 'jumat-ai-web'
 # ==============================================================================
 
 services:
-  app:
+  nama-project-anda:
     container_name: jumat-ai-nama-project-anda
     build:
       context: .
       args:
         REPO_URL: "https://github.com/username_anda/repo-proyek-anda.git"
-        BRANCH: "main"
+        # Hash commit lengkap (40 karakter), harus sama dengan commit_sha di project.json
+        COMMIT_SHA: "0000000000000000000000000000000000000000"
     restart: unless-stopped
 
     # Expose port internal container ke network Traefik (bukan port mapping ke host)
@@ -30,8 +31,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'        # Maksimal 0.5 vCPU
-          memory: 512M       # Maksimal 512 Megabytes RAM
+          cpus: '0.5'        # Total semua service maks 0.5 vCPU per proyek
+          memory: 512M       # Total semua service maks 512M per proyek
 
     # Konfigurasi Routing Traefik
     labels:

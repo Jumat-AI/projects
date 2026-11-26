@@ -3,7 +3,6 @@
   "title": "Gemini Prompt Crafter",
   "description": "Generator prompt AI interaktif berbasis kerangka RTF (Role-Task-Format) untuk mengoptimalkan hasil generasi AI Anda.",
   "repo_url": "https://github.com/jumat-ai/gemini-prompt-crafter",
-  "branch": "main",
   "internal_port": 80,
   "author": {
     "name": "Tim Komunitas Jumat.AI",

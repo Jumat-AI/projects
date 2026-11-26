@@ -1,27 +1,66 @@
 name: Validasi PR & Code Sniffer Proyek
 
 on:
+  # Tanpa filter paths: PR yang hanya mengubah scripts/ atau .github/ juga harus divalidasi,
+  # dan check ini bisa dijadikan required check di ruleset tanpa tertahan.
   pull_request:
     branches: [ main ]
-    paths:
-      - 'projects/**'
+
+# Token hanya-baca: workflow ini memproses isi PR (termasuk dari fork).
+# Komentar ke PR dipasang oleh workflow terpisah (pr-comment.yml) via workflow_run.
+permissions:
+  contents: read
 
 jobs:
   validate-and-sniff:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      # Validator, sniffer, dan dependency diambil dari commit BASE (main), bukan dari PR,
+      # agar PR tidak bisa melemahkan validatornya sendiri.
+      - name: Checkout Validator dari Base
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          fetch-depth: 0
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      # Isi PR (merge commit) di folder terpisah; hanya projects/ yang dipakai.
+      - name: Checkout Isi PR
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          path: pr-head
+          fetch-depth: 2 # Merge commit + parent pertama (base) untuk melihat file yang diubah PR
+          persist-credentials: false
+
+      - name: Gunakan Folder projects/ dari PR
+        run: |
+          rm -rf projects
+          # -a: pertahankan symlink apa adanya agar validator bisa mendeteksi & menolaknya
+          cp -a pr-head/projects projects
+
+      # Hanya annotation di log Actions. Peringatan di komentar PR dihitung ulang oleh
+      # pr-comment.yml lewat API GitHub (tidak memercayai hasil dari job ini).
+      - name: Deteksi Perubahan di Luar Folder Proyek
+        run: |
+          # File di luar projects/<slug>/ (dan projects/_template/) dieksekusi di server
+          # setelah merge, sehingga wajib di-review manual oleh pengelola.
+          CHANGED=$(git -C pr-head -c core.quotepath=off diff --no-renames --name-only HEAD^1 HEAD)
+          OUTSIDE=$(awk '!/^projects\/[^\/]+\// || /^projects\/_template\//' <<< "$CHANGED")
+          COUNT=$(awk 'NF' <<< "$OUTSIDE" | wc -l | tr -d ' ')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          if [ "$COUNT" -gt 0 ]; then
+            echo "::warning::PR ini mengubah $COUNT file di luar folder proyek. Wajib di-review manual oleh pengelola."
+            while IFS= read -r f; do [ -n "$f" ] && echo "::warning file=$f::File sensitif diubah: $f"; done <<< "$OUTSIDE"
+          else
+            echo "Semua perubahan berada di dalam folder projects/<slug>/."
+          fi
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '20'
 
-      - name: Install Dependencies
-        run: npm install
+      - name: Install Dependencies (dari Base)
+        run: npm ci --ignore-scripts
 
       - name: Validasi Arsitektur Docker, Traefik & Batasan Resource
         run: node scripts/validate-pr.js --sniff
@@ -29,26 +68,43 @@ jobs:
       - name: Cek Kompilasi Katalog
         run: node scripts/build-catalog.js
 
-      - name: Post Comment Feedback Berhasil di PR
-        if: success()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '🎉 **Verifikasi Otomatis Berhasil!**\n\n- ✔ Dockerfile & docker-compose.yml memenuhi standar Traefik\n- ✔ Zero Host Port Exposure (tidak ada port berbahaya diekspos)\n- ✔ Batasan resource CPU (<= 0.5) & RAM (<= 512MB) valid\n- ✔ Terhubung ke network terisolasi `jumat-ai-web`\n- ✔ Code Sniffer bersih (bebas malware, crypto miner, dan secret bocor)\n\nPengelola Jumat.AI akan segera meninjau PR ini untuk di-merge.'
-            })
+      # Simpan hasil validasi untuk dibaca pr-comment.yml.
+      # Berjalan selalu (berhasil/gagal) agar komentar tetap terpasang.
+      - name: Simpan Hasil Validasi
+        if: always()
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          mkdir -p pr-result
+          echo "$PR_NUMBER" > pr-result/pr_number
+          echo "$JOB_STATUS" > pr-result/status
 
-      - name: Post Comment Feedback Gagal di PR
-        if: failure()
-        uses: actions/github-script@v7
+      - name: Upload Hasil Validasi
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '❌ **Verifikasi Otomatis Gagal!**\n\nAda aturan konfigurasi atau keamanan yang belum terpenuhi. Silakan periksa tab **Actions** / log pemeriksaan untuk detail kesalahan dan perbaiki pada commit berikutnya.'
-            })
+          name: pr-validation-result
+          path: pr-result/
+          retention-days: 1
+
+  # Menguji validator VERSI PR (mis. saat pengelola mengubah scripts/).
+  # Sengaja dipisah ke job lain (VM terpisah) agar kode PR tidak dapat memengaruhi
+  # job validasi di atas maupun artifact hasilnya. Hasilnya hanya informasi tambahan.
+  test-validator-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Isi PR
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+
+      - name: Jalankan Test Validator
+        run: |
+          npm ci --ignore-scripts
+          npm test --if-present
